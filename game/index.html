@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Night Courier — a stealth game</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --ink: #e8e4d8;
+    --muted: #9aa5b1;
+    --panel: #141a21;
+    --line: #2c3642;
+    --gold: #e8b64c;
+    --green: #39d353;
+    --red: #ff5040;
+    --amber: #ffb02e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+    background: #0b0f14;
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 10px 12px 16px;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 {
+    font-size: 26px; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--gold);
+  }
+  header h1 span { color: var(--ink); }
+  header p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  #hud {
+    width: 960px; max-width: 100%;
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 12px; margin-bottom: 8px; font-size: 14px;
+  }
+  #hud .level { font-weight: bold; color: var(--gold); }
+  #hud .docs { font-weight: bold; }
+  #hud .meter-wrap { display: flex; align-items: center; gap: 8px; flex: 1 1 180px; }
+  #hud .meter {
+    flex: 1; height: 12px; background: #0b0f14; border: 1px solid var(--line);
+    border-radius: 6px; overflow: hidden; min-width: 90px;
+  }
+  #hud-meter-fill { display: block; height: 100%; width: 0%; background: var(--green); transition: width 0.15s linear; }
+  #hud-meter-fill.warm { background: var(--amber); }
+  #hud-meter-fill.hot { background: #ff8a3d; }
+  #hud-meter-fill.alarm { background: var(--red); }
+  #hud-meter-label { font-size: 12px; font-weight: bold; min-width: 110px; color: var(--muted); }
+  #hud .lives { color: #ff6b6b; letter-spacing: 2px; }
+  #hud .stat b { color: var(--gold); }
+  #hud button {
+    background: #1d2733; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px;
+  }
+  #hud button:hover { border-color: var(--gold); }
+  #stage { position: relative; width: 960px; max-width: 100%; }
+  #game {
+    display: block; width: 960px; max-width: 100%; height: auto;
+    border: 1px solid var(--line); border-radius: 8px; background: #0d1117;
+  }
+  .overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: rgba(6, 10, 16, 0.82); border-radius: 8px; padding: 24px;
+  }
+  .overlay[hidden] { display: none; }
+  .overlay h2 { font-size: 40px; letter-spacing: 5px; text-transform: uppercase; color: var(--gold); }
+  .overlay h2.red { color: var(--red); }
+  .overlay h2.green { color: var(--green); }
+  .overlay .sub { color: var(--muted); margin: 6px 0 14px; font-size: 15px; max-width: 560px; line-height: 1.5; }
+  .overlay .big { font-size: 20px; font-weight: bold; margin: 4px 0; }
+  .overlay .keys {
+    text-align: left; font-size: 14px; line-height: 1.9; color: var(--ink);
+    background: #10161d; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 18px; margin: 8px 0 16px;
+  }
+  .overlay .keys b { color: var(--gold); }
+  .overlay button {
+    background: var(--gold); color: #14100a; border: none; border-radius: 8px;
+    padding: 12px 28px; font-size: 17px; font-weight: bold; cursor: pointer;
+    letter-spacing: 1px;
+  }
+  .overlay button:hover { filter: brightness(1.1); }
+  .overlay button.ghost {
+    background: transparent; color: var(--ink); border: 1px solid var(--line);
+    margin-top: 10px; padding: 8px 18px; font-size: 14px;
+  }
+  footer { color: var(--muted); font-size: 12.5px; margin-top: 9px; text-align: center; line-height: 1.6; }
+  footer b { color: var(--ink); }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Night <span>Courier</span></h1>
+  <p>Steal the files. Dodge the cones. Slip out unseen.</p>
+</header>
+
+<div id="hud" role="status">
+  <span class="level" id="hud-level">1 · The Archive</span>
+  <span class="docs" id="hud-docs">0/3 files</span>
+  <span class="meter-wrap">
+    <span class="meter"><span id="hud-meter-fill"></span></span>
+    <span id="hud-meter-label">Unseen</span>
+  </span>
+  <span class="lives" id="hud-lives">♥♥♥</span>
+  <span class="stat" id="hud-pebbles">◉ ×3</span>
+  <span class="stat">⏱ <b id="hud-time">0:00</b></span>
+  <span class="stat">Score <b id="hud-score">0</b></span>
+  <span class="stat">Best <b id="hud-best">0</b></span>
+  <button id="btn-mute" data-button="mute" type="button">🔊 Sound: on (M)</button>
+</div>
+
+<div id="stage">
+  <canvas id="game" aria-label="Night Courier: top-down stealth game. Move with WASD or arrow keys, sneak with Shift, throw a pebble with Q or a mouse click."></canvas>
+
+  <div class="overlay" id="overlay-title">
+    <h2>Night Courier</h2>
+    <p class="sub">You are the courier the archive never sees. Slip past the night
+      guards, steal every secret file, and reach the green exit — without
+      ever letting a vision cone fill your detection meter.</p>
+    <div class="keys">
+      <b>WASD / arrows</b> — move &nbsp;·&nbsp; <b>Shift</b> — sneak (slow, quiet, harder to spot)<br>
+      <b>Q</b> or <b>click</b> — throw a pebble to lure a guard away<br>
+      <b>Running</b> is loud · <b>shadows</b> hide you · <b>lamplight</b> exposes you<br>
+      <b>P</b> pause &nbsp;·&nbsp; <b>M</b> mute &nbsp;·&nbsp; <b>R</b> restart level &nbsp;·&nbsp; <b>Enter</b> start
+    </div>
+    <button data-button="start" type="button">▶ &nbsp;Begin the run</button>
+    <p class="sub" id="title-best" style="margin-top: 12px;"></p>
+  </div>
+
+  <div class="overlay" id="overlay-paused" hidden>
+    <h2>Paused</h2>
+    <p class="sub">The guards hold their patrol. Take a breath.</p>
+    <button data-button="resume" type="button">Resume</button>
+  </div>
+
+  <div class="overlay" id="overlay-caught" hidden>
+    <h2 class="red">Spotted!</h2>
+    <p class="sub">A guard ran you down. The files are still there — try the route again, slower this time.</p>
+    <p class="big" id="caught-lives"></p>
+    <button data-button="retry" type="button">↻ &nbsp;Try the level again</button>
+  </div>
+
+  <div class="overlay" id="overlay-clear" hidden>
+    <h2 class="green">Level clear</h2>
+    <p class="sub">Every file is in your bag and you vanished into the night.</p>
+    <p class="big" id="clear-score"></p>
+    <p class="sub" id="clear-next"></p>
+    <button data-button="next" type="button">Next level ▶</button>
+  </div>
+
+  <div class="overlay" id="overlay-victory" hidden>
+    <h2 class="green">Clean getaway</h2>
+    <p class="sub">All three floors, every file, and the archive never knew you were there.</p>
+    <p class="big" id="victory-score"></p>
+    <p class="sub" id="victory-best"></p>
+    <button data-button="again" type="button">↻ &nbsp;Run it again</button>
+  </div>
+
+  <div class="overlay" id="overlay-over" hidden>
+    <h2 class="red">Caught for good</h2>
+    <p class="sub">Three strikes and the archive keeps its secrets — this time.</p>
+    <p class="big" id="over-score"></p>
+    <p class="sub" id="over-best"></p>
+    <button data-button="again" type="button">↻ &nbsp;Start over</button>
+  </div>
+</div>
+
+<footer>
+  <b>How to stay unseen:</b> wait for a patrol to turn · cross cones quickly or not at all ·
+  hide in the dark blue shadows · never run past a guard · a pebble buys you ten seconds.
+</footer>
+
+<p id="status" role="status" aria-live="polite"></p>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
